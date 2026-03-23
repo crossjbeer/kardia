@@ -1,0 +1,38 @@
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-kardia}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-kardia}
+      POSTGRES_DB: ${POSTGRES_DB:-kardia}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-kardia} -d ${POSTGRES_DB:-kardia}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  app:
+    build: .
+    restart: on-failure
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql+psycopg2://${POSTGRES_USER:-kardia}:${POSTGRES_PASSWORD:-kardia}@db:5432/${POSTGRES_DB:-kardia}
+    volumes:
+      - ./lore:/app/lore
+      - .:/app 
+    working_dir: /app
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+        restart: true
+
+volumes:
+  pgdata:
