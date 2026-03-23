@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Kardia UI</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: Arial;
+      display: flex;
+      height: 100vh;
+    }
+
+    #sidebar {
+      width: 260px;
+      background: #1e1e1e;
+      color: white;
+      padding: 10px;
+      overflow-y: auto;
+    }
+
+    #main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+    }
+
+    h3 {
+      margin-top: 20px;
+    }
+
+    button {
+      width: 100%;
+      margin: 5px 0;
+      padding: 8px;
+      cursor: pointer;
+    }
+
+    #chat {
+      flex: 1;
+      padding: 10px;
+      overflow-y: auto;
+    }
+
+    .message {
+      margin: 8px 0;
+      padding: 10px;
+      border-radius: 6px;
+    }
+
+    .user {
+      background: #d0eaff;
+      align-self: flex-end;
+    }
+
+    .assistant {
+      background: #eee;
+    }
+
+    #inputArea {
+      display: flex;
+      border-top: 1px solid #ccc;
+    }
+
+    #inputArea input {
+      flex: 1;
+      padding: 10px;
+      border: none;
+    }
+
+    #inputArea button {
+      width: 100px;
+    }
+
+    #chunks {
+      padding: 10px;
+      border-top: 1px solid #ccc;
+      max-height: 200px;
+      overflow-y: auto;
+      background: #fafafa;
+    }
+  </style>
+</head>
+
+<body>
+
+<div id="sidebar">
+  <h3>💬 Chats</h3>
+  <button onclick="newChat()">+ New Chat</button>
+  <div id="chatList"></div>
+
+  <h3>📄 Documents</h3>
+  <div id="docList"></div>
+
+  <h3>⚙️ Admin</h3>
+  <button onclick="ingest()">Run Ingest</button>
+  <button onclick="loadTables()">View Tables</button>
+</div>
+
+<div id="main">
+  <div id="chat"></div>
+
+  <div id="chunks"></div>
+
+  <div id="inputArea">
+    <input id="messageInput" placeholder="Ask something..." />
+    <button onclick="sendMessage()">Send</button>
+  </div>
+</div>
+
+<script>
+const API = "http://localhost:8000";
+let currentChatId = null;
+
+function addMessage(text, role) {
+  const div = document.createElement("div");
+  div.className = "message " + role;
+  div.innerText = text;
+  document.getElementById("chat").appendChild(div);
+  div.scrollIntoView();
+}
+
+// ---------------- CHAT ----------------
+
+async function newChat() {
+  const res = await fetch(API + "/chats", { method: "POST" });
+  const data = await res.json();
+  currentChatId = data.chat_id;
+  document.getElementById("chat").innerHTML = "";
+  loadChats();
+}
+
+async function loadChats() {
+  const res = await fetch(API + "/chats");
+  const chats = await res.json();
+
+  const container = document.getElementById("chatList");
+  container.innerHTML = "";
+
+  chats.forEach(c => {
+    const btn = document.createElement("button");
+    btn.innerText = "Chat " + c.chat_id;
+    btn.onclick = () => loadChatHistory(c.chat_id);
+    container.appendChild(btn);
+  });
+}
+
+async function loadChatHistory(chatId) {
+  currentChatId = chatId;
+  const res = await fetch(`${API}/chats/${chatId}`);
+  const data = await res.json();
+
+  const chatDiv = document.getElementById("chat");
+  chatDiv.innerHTML = "";
+
+  data.messages.forEach(m => {
+    addMessage(m.content, m.role);
+  });
+}
+
+async function sendMessage() {
+  const input = document.getElementById("messageInput");
+  const text = input.value;
+  if (!text) return;
+
+  addMessage(text, "user");
+  input.value = "";
+
+  const res = await fetch(API + "/chat", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({
+      chat_id: currentChatId,
+      message: text,
+      top_k: 5,
+      temperature: 0.7
+    })
+  });
+
+  const data = await res.json();
+
+  addMessage(data.answer, "assistant");
+
+  // show retrieved chunks
+  const chunksDiv = document.getElementById("chunks");
+  chunksDiv.innerHTML = "<b>Retrieved Chunks:</b><br>";
+  data.retrieved_chunks.forEach(c => {
+    chunksDiv.innerHTML += `<div>• ${c.content?.slice(0, 100)}...</div>`;
+  });
+}
+
+// ---------------- DOCUMENTS ----------------
+
+async function loadDocuments() {
+  const res = await fetch(API + "/documents");
+  const docs = await res.json();
+
+  const container = document.getElementById("docList");
+  container.innerHTML = "";
+
+  docs.forEach(doc => {
+    const btn = document.createElement("button");
+    btn.innerText = doc.filename;
+    btn.onclick = () => loadChunks(doc.id);
+    container.appendChild(btn);
+  });
+}
+
+async function loadChunks(docId) {
+  const res = await fetch(`${API}/chunks/${docId}`);
+  const chunks = await res.json();
+
+  const chatDiv = document.getElementById("chat");
+  chatDiv.innerHTML = "<h3>Document Chunks</h3>";
+
+  chunks.forEach(c => {
+    const div = document.createElement("div");
+    div.className = "message assistant";
+    div.innerText = c.content;
+    chatDiv.appendChild(div);
+  });
+}
+
+// ---------------- ADMIN ----------------
+
+async function ingest() {
+  await fetch(API + "/ingest", { method: "POST" });
+  alert("Ingestion completed!");
+}
+
+async function loadTables() {
+  const res = await fetch(API + "/tables");
+  const data = await res.json();
+  alert(JSON.stringify(data, null, 2));
+}
+
+// ---------------- INIT ----------------
+
+loadChats();
+loadDocuments();
+</script>
+
+</body>
+</html>
