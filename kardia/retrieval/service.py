@@ -6,7 +6,6 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from kardia.retrieval.config import RetrievalConfig
-from kardia.retrieval.embedder import embed_query
 from kardia.retrieval.schemas import RetrievalResponse
 from kardia.retrieval.strategy_registry import retrieval_registry
 
@@ -18,7 +17,7 @@ class RetrievalService:
         engine = create_engine(config.database_url, future=True)
         self.SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False, future=True)
 
-        
+        self.registry = retrieval_registry
 
     def retrieve(
         self,
