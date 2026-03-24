@@ -4,6 +4,9 @@ from typing import Dict
 
 from kardia.ingest.strategies.base import BaseIngestionStrategy
 
+from kardia.ingest.strategies.text import TextIngestionStrategy
+from kardia.ingest.strategies.markdown import MarkdownIngestionStrategy 
+
 class IngestionRegistry:
     def __init__(self) -> None:
         self._strategies: Dict[str, BaseIngestionStrategy] = {}
@@ -19,3 +22,10 @@ class IngestionRegistry:
 
     def supports(self, extension: str) -> bool:
         return extension.lower() in self._strategies
+
+from kardia.ingest.etl import LlamaIndexETL 
+
+etl = LlamaIndexETL()
+ingestion_registry = IngestionRegistry()
+ingestion_registry.register(".txt", TextIngestionStrategy(etl))
+ingestion_registry.register(".md", MarkdownIngestionStrategy(etl))
