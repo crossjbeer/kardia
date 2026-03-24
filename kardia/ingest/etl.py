@@ -1,9 +1,13 @@
 from __future__ import annotations
 
-from kardia.config import Config
-from kardia.db.models import Base, Document, Chunk
+from pathlib import Path
+from typing import List
 
+from llama_index.core.node_parser import MarkdownNodeParser, SentenceSplitter
+from llama_index.core.schema import Document as LlamaDocument
+from llama_index.embeddings.huggingface import HuggingFaceEmbedding
 
+from kardia.ingest.config import IngestionConfig
 
 # Shared LlamaIndex ETL helpers
 class LlamaIndexETL:
