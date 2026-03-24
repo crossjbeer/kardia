@@ -23,9 +23,10 @@ class IngestionRegistry:
     def supports(self, extension: str) -> bool:
         return extension.lower() in self._strategies
 
+from kardia.ingest.config import IngestionConfig 
 from kardia.ingest.etl import LlamaIndexETL 
 
-etl = LlamaIndexETL()
+etl = LlamaIndexETL(IngestionConfig())
 ingestion_registry = IngestionRegistry()
 ingestion_registry.register(".txt", TextIngestionStrategy(etl))
 ingestion_registry.register(".md", MarkdownIngestionStrategy(etl))
