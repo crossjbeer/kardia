@@ -3,7 +3,8 @@ from __future__ import annotations
 from typing import Dict
 
 from kardia.retrieval.strategies.base import BaseRetrievalStrategy
-
+from kardia.retrieval.strategies.vector import VectorSearchStrategy
+from kardia.retrieval.strategies.keyword import KeywordSearchStrategy
 
 class RetrievalRegistry:
     def __init__(self) -> None:
@@ -20,3 +21,8 @@ class RetrievalRegistry:
 
     def supports(self, mode: str) -> bool:
         return mode.lower() in self._strategies
+    
+from kardia.retrieval.embedder import embed_query
+retrieval_registry = RetrievalRegistry()
+retrieval_registry.register("vector", VectorSearchStrategy(embed_query))
+retrieval_registry.register("keyword", KeywordSearchStrategy())
