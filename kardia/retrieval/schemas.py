@@ -18,6 +18,19 @@ class RetrievalResult(BaseModel):
     similarity: float
 
 
+class CollapsedRetrievalResult(BaseModel):
+    chunk_ids: List[int]
+    document_id: int
+    filename: str
+    filepath: str
+    description: Optional[str] = None
+    content: str
+    start_index: int
+    end_index: int
+    distance: float
+    similarity: float
+
+
 class RetrievalResponse(BaseModel):
     query: str
     k: int
