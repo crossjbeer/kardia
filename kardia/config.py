@@ -1,7 +1,5 @@
 import os 
-from dataclasses import dataclass
 
-@dataclass(slots=True)
 class Config:
     POSTGRES_USER: str = os.environ.get("POSTGRES_USER", "kardia")
     POSTGRES_PASSWORD: str = os.environ.get("POSTGRES_PASSWORD", "kardia")
