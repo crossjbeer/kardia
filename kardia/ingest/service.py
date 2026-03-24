@@ -7,13 +7,9 @@ from sqlalchemy.orm import sessionmaker
 
 from kardia.db.models import Base, Document 
 
-from kardia.ingest.strategy_registry import IngestionRegistry 
+from kardia.ingest.strategy_registry import ingestion_registry 
 from kardia.ingest.config import IngestionConfig 
-from kardia.ingest.etl import LlamaIndexETL 
 from kardia.ingest.persist import DocumentRepository
-
-from kardia.ingest.strategies.text import TextIngestionStrategy
-from kardia.ingest.strategies.markdown import MarkdownIngestionStrategy
 
 class IngestionService:
     def __init__(self, config: IngestionConfig) -> None:
@@ -23,11 +19,7 @@ class IngestionService:
         Base.metadata.create_all(engine)
         self.SessionLocal = sessionmaker(bind=engine, expire_on_commit=False, future=True)
 
-        etl = LlamaIndexETL(config)
-
-        self.registry = IngestionRegistry()
-        self.registry.register(".txt", TextIngestionStrategy(etl))
-        self.registry.register(".md", MarkdownIngestionStrategy(etl))
+        self.registry = ingestion_registry
 
     def ingest_file(self, path: Path, description: Optional[str] = None) -> Optional[Document]:
         if not self.registry.supports(path.suffix):
