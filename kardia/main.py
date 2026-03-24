@@ -1,6 +1,8 @@
 
 import os
+from pathlib import Path
 from fastapi import FastAPI, HTTPException
+from fastapi.responses import FileResponse
 from sqlalchemy import create_engine, inspect
 from sqlalchemy.exc import SQLAlchemyError
 from dotenv import load_dotenv
@@ -17,6 +19,10 @@ engine = create_engine(database_url)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 app = FastAPI()
+
+@app.get("/")
+def serve_ui():
+    return FileResponse(os.path.join(os.path.dirname(__file__), "..", "index.html"))
 
 from fastapi.middleware.cors import CORSMiddleware
 app.add_middleware(
@@ -75,12 +81,17 @@ def list_documents():
 # /ingest
 @app.post("/ingest")
 def ingest():
-    from kardia.ingest.main import main as ingest_main
-    try:
-        ingest_main()
-        return {"status": "ingestion completed"}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    from kardia.ingest.service import IngestionService
+    from kardia.ingest.config import IngestionConfig 
+    
+    #try:
+    config = IngestionConfig()
+    service = IngestionService(config)
+    service.ingest_directory(Path(config.lore_dir))
+
+    return {"status": "ingestion completed"}
+    #except Exception as e:
+    #    raise HTTPException(status_code=500, detail=str(e))
     
 # Endpoint: /chunks/{document_id}
 @app.get("/chunks/{document_id}")
