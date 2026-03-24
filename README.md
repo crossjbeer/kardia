@@ -9,16 +9,9 @@ When I built Yggy, I did so with the help of an AI pair programmer, but without 
 ## How it Works: 
 
 ### Docker
-Docker Desktop is available for Windows, Mac, and Linux: 
-```bash
-https://www.docker.com/products/docker-desktop/
-```
+Docker Desktop is available for [Windows, Mac, and Linux](https://www.docker.com/products/docker-desktop/).
 
-Otherwise on Linux, you may use Docker Engine + Docker Compose plugin: 
-```bash
-https://docs.docker.com/engine/install/ # docker engine
-https://docs.docker.com/compose/install/linux/ # docker compose 
-```
+Alternatively, on Linux, you may use [Docker Engine](https://docs.docker.com/engine/install/) and the [Docker Compose plugin](https://docs.docker.com/compose/install/linux/).
 
 #### Checking your install
 ```bash
