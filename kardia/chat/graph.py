@@ -2,16 +2,26 @@ from __future__ import annotations
 
 from typing import Any, TypedDict
 
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+
 from langgraph.graph import StateGraph, START, END
 
 from llama_index.core.llms import ChatMessage
 from llama_index.llms.anthropic import Anthropic
 
-from kardia.retrieval.main import SessionLocal, retrieve_knn
 from .chat_repository import get_chat_or_404, list_chat_messages
 
-from kardia.config import Config 
-config = Config() 
+from kardia.config import Config
+from kardia.retrieval.config import RetrievalConfig
+from kardia.retrieval.service import RetrievalService
+
+config = Config()
+
+_chat_engine = create_engine(config.POSTGRES_URL, future=True)
+ChatSessionLocal = sessionmaker(bind=_chat_engine, autoflush=False, autocommit=False, future=True)
+
+retrieval_service = RetrievalService(RetrievalConfig())
 
 # read the system prompt from prompts/system-prompt.md at module load time
 with open("prompts/system-prompt.md", "r") as f:
@@ -48,7 +58,7 @@ def build_retrieval_prompt(user_query: str, results: list[dict[str, Any]]) -> st
 def load_history_node(state: GraphState) -> dict[str, Any]:
     chat_id = state["chat_id"]
 
-    with SessionLocal() as db:
+    with ChatSessionLocal() as db:
         chat = get_chat_or_404(db, chat_id)
         if chat is None:
             raise ValueError(f"Chat {chat_id} not found.")
@@ -63,8 +73,7 @@ def retrieve_context_node(state: GraphState) -> dict[str, Any]:
     user_query = state["user_query"]
     k = state.get("top_k", 5)
 
-    with SessionLocal() as db:
-        retrieval_response = retrieve_knn(db=db, query_text=user_query, k=k)
+    retrieval_response = retrieval_service.retrieve(user_query, k=k)
 
     results = [r.model_dump() for r in retrieval_response.results]
     retrieved_prompt = build_retrieval_prompt(user_query, results)
