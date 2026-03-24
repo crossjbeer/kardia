@@ -10,11 +10,15 @@ When I built Yggy, I did so with the help of an AI pair programmer, but without 
 
 ### Docker
 Docker Desktop is available for Windows, Mac, and Linux: 
-`https://www.docker.com/products/docker-desktop/`
+```bash
+https://www.docker.com/products/docker-desktop/
+```
 
 Otherwise on Linux, you may use Docker Engine + Docker Compose plugin: 
-`https://docs.docker.com/engine/install/`
-`https://docs.docker.com/compose/install/linux/`
+```bash
+https://docs.docker.com/engine/install/ # docker engine
+https://docs.docker.com/compose/install/linux/ # docker compose 
+```
 
 #### Checking your install
 ```bash
