@@ -11,7 +11,6 @@ from kardia.db.models import Base  # adjust if needed
 from kardia.config import Config
 
 database_url = Config.POSTGRES_URL
-print(f"Using database URL: {database_url}", type(database_url))
 context.config.set_main_option("sqlalchemy.url", database_url)
 
 # this is the Alembic Config object, which provides
