@@ -2,6 +2,7 @@ from sqlalchemy import create_engine, Column, Integer, String, Text, DateTime, F
 from sqlalchemy.orm import declarative_base, relationship
 from sqlalchemy.sql import func
 from pgvector.sqlalchemy import Vector
+from sqlalchemy.dialects.postgresql import TSVECTOR
 
 Base = declarative_base()
 
@@ -29,6 +30,8 @@ class Chunk(Base):
     start_index = Column(Integer)
     end_index   = Column(Integer)
     embedding   = Column(Vector(384))             # ← must match bge-small dimension
+
+    search_vector = Column(TSVECTOR) 
 
     document = relationship("Document", back_populates="chunks")
 
