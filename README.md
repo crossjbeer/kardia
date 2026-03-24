@@ -28,7 +28,7 @@ docker compose up --build
 
 Once running, open `http://localhost:8080`
 
-### Stopping the App
+### Quick Stop
 ```bash
 docker compose down 
 ```
