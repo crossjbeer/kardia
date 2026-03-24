@@ -32,12 +32,3 @@ Once running, open `http://localhost:8080`
 ```bash
 docker compose down 
 ```
-
-
-
-You should start by cloning the repo: 
-`git clone https://github.com/crossjbeer/kardia .`
-
-
-
-
