@@ -8,8 +8,7 @@ from sqlalchemy.orm import sessionmaker
 from kardia.retrieval.config import RetrievalConfig
 from kardia.retrieval.embedder import embed_query
 from kardia.retrieval.schemas import RetrievalResponse
-from kardia.retrieval.strategy_registry import RetrievalRegistry
-from kardia.retrieval.strategies.vector import VectorSearchStrategy
+from kardia.retrieval.strategy_registry import retrieval_registry
 
 
 class RetrievalService:
@@ -19,8 +18,7 @@ class RetrievalService:
         engine = create_engine(config.database_url, future=True)
         self.SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False, future=True)
 
-        self.registry = RetrievalRegistry()
-        self.registry.register("vector", VectorSearchStrategy(embed_query))
+        
 
     def retrieve(
         self,
