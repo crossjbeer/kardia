@@ -1,10 +1,12 @@
 # Kardia
 A RAG-Pipeline for Homebrew Content Generation
 
+![Kardia Web Interface](interface.png)
+
 ## What is This?
 Back in 2022, as ChatGPT and other LLMs began to show real-world prowess, I started experimenting with an early RAG pipeline for homebrew content generation. Called Yggdrasil, or Yggy for short, the idea was to make an AI Game Master. It was surprisingly not that hair-brained of a scheme. You can find the code [here](https://github.com/crossjbeer/yggdrasil). 
 
-When I built Yggy, I did so with the help of an AI pair programmer, but without the complementary benefits of Langgraph, Llama-index, or any other useful tools. I watched these tools grow up around me and disheartendly expected my own ideas to be eaten by something larger like Google's Notebook LM. You see that pessemism expressed on Yggy's short README. However, a couple years further down the line, no such tool has emerged. While Dify or Notebook LM provide accessible RAG interfaces, nothing is so usable and configurable as I would like it to be, so here I am again. Wahoo!
+When I built Yggy, I did so with the help of an AI pair programmer, but without the complementary benefits of Langgraph, Llama-index, or any other useful tools. I watched these tools grow up around me and disheartendly expected my own ideas to be eaten by something larger like Google's Notebook LM, more quickly than I could build it. You see that pessemism expressed on Yggy's short README. Now, a couple years further down the line, no such tool has emerged. While Dify or Notebook LM provide accessible RAG interfaces, nothing is so usable and configurable as I would like it to be, so here I am again. Wahoo!
 
 ## How to Use
 Clone the repo and add your lore files (.txt, .md) to the folder called `lore`. Follow the tutorial below to produce a chat interface over your own files!
@@ -26,13 +28,13 @@ docker compose version
 git clone https://github.com/crossjbeer/kardia
 cd kardia
 ## **Add your lore files (.txt, .md) to the lore folder**
-docker compose up --build
+docker compose up --build # remove --build on future runs
 ```
 
-### Using
+### Usage
 Once running, open `http://localhost:8080`
 
-This opens our web interface where you can browse existing chats, make new chats, and view documents. 
+This opens our web interface where you can run the ingestion pipeline, browse documents and chat! 
 
 ### Quick Stop
 ```bash
@@ -42,20 +44,28 @@ docker compose down
 ## How it Works: 
 Kardia is (currently) a text-based RAG pipeline built in Docker using PostgreSQL, Langgraph, and Llama-Index. 
 
+### API
+A **FastAPI** + **uvicorn** setup sits between the frontend and the following backend capabilities: 
+1. Document ETL
+2. Vector/Keyword/Hybrid Retrieval 
+3. RAG-Equipped Chatting
+4. Corpus Browsing / Editing
+
 ### Database 
-Our project uses **PostgreSQL 16** with the **pgvector** extension for embedding-based semantic retrieval. Postgres is used here to demonstrate a production-adjacent environment. Simpler, light-weight solutions such as SQLite or an in-memory vector store are foregone to highlight scalability, indexing strategies, and integration with existing data infrastructure. 
+The project uses **PostgreSQL 16** with the **pgvector** extension for embedding-based semantic retrieval and built-in **ts_rank** capabilities for keyword-based retrieval. I use postgres to demonstrate a production-adjacent environment. Simpler, light-weight solutions such as SQLite or an in-memory vector store are foregone to highlight scalability, indexing strategies, retrieval strategies, and integration with existing data infrastructure. 
 
 #### Migrating
-**Alembic** handles database migrations. Four version files exist: 
+**Alembic** handles database migrations. Five version files exist: 
 1. Register pgvector
 2. Build tables
 3. Create an embedding cosine similarity index 
 4. Support keyword search 
+5. Expanding Document Metadata
 
 #### Configuration: 
 Four tables make up our database: 
 
-**documents**: Stores metadata for each ingested file, including filename, file path, SHA-256 hash (for idempotent re-ingest), optional description, and creation timestamp. Each document can have multiple associated text chunks.
+**documents**: Stores metadata for each ingested file, including filename, file path, SHA-256 hash (for idempotent re-ingest), optional description, and creation timestamp. Each document can have multiple associated text chunks. Documents expanded with corpus, authorship, and more fields.
 
 **chunks**: Represents segments of text from documents. Each chunk stores its content, start and end indices, and a vector embedding (dimension 384, matching bge-small). Chunks are linked to their parent document.
 
@@ -64,9 +74,13 @@ Four tables make up our database:
 **chat_messages**: Stores individual messages within a chat, including the role ("user" or "assistant"), message content, and timestamp. Each message is linked to its parent chat.
 
 ### Ingestion
-I leverage **Llama-index** to build an ETL pipe for **text** and **markdown** files. I utilize a **Strategy-pattern** to organize individual document ingestion strategies, and a **Registry** to serve them.  Documents are chunked into 512 character segments (the max supported by our embedding model), with a 64 character overlap. These settings can be configured in `kardia/ingest/config.py`.
+I leverage **Llama-index** to build an ETL pipe for **text** and **markdown** files. I utilize a **Strategy-pattern** to organize individual document ingestion strategies and a **Registry** to serve them. This trivializes adding new ingestion strategies down the line. 
+
+Documents are chunked into 512 character segments (the max supported by our embedding model) with a 64 character overlap. These settings can be configured in .env. 
 
 This chunking style may prove limiting if we use keyword search more frequently. As of 2026-03-24, I am opting to keep the chunk size at 512 characters. 
+
+As of 2026-03-25, I am feeling slightly limited by our chunking style. 512 characters is not a lot of information, for vector or keyword retrieval. While the vectors seem of high representative quality, more work is needed to fully exploit the info. Could grab chunks 'around' the high-ranking chunks to ensure coverage or upgrade to the bge-v3 model.
 
 #### Embeddings
 I embed using the `BAAI/bge-small-en-v1.5` model served up through huggingface. This produces a dimension 384 vector representing each 512 character chunk produced from lore. 
@@ -78,11 +92,12 @@ Embedding accuracy can be improved with larger BERT-based models (bge-base, bge-
 ### Retrieval 
 Retrieval is also handled via **Strategy-pattern** and **Registry**.
 
-Support Retrieval Methods: 
-1. Vector-based Top-k
-2. Keyword-based Top-k
+Supported Retrieval Methods: 
+1. Vector-based Top-k (cosine)
+2. Keyword-based Top-k (ts_rank)
+3. Hybrid Vector+Keyword Top-k (rrf)
 
-While **vector-based top-k** retrieval is often seen as optimal for RAG pipelines, **keyword-based** is typically overlooked. Keyword search can prove particularly useful in this niche domain where specific nouns and names are prevalent. A hybrid recommender is planned. 
+While **vector-based top-k** retrieval is often seen as optimal for RAG pipelines, **keyword-based** is typically overlooked. Keyword search can prove particularly useful in this niche domain where specific nouns and names are prevalent. A hybrid recommender aims to bridge the gap, retrieving via embedding and keyword and comparing the results. 
 
 ### Chat
-**Langgraph** handles our agentic chat approach. We build out a graph capable of loading chat history, retrieving context, and calling our LLM. **Langgraph** is chosen here for scalability and composability. 
+**Langgraph** handles the agentic chat approach. We build out a graph capable of loading chat history, retrieving context, and calling our LLM. **Langgraph** is chosen here for scalability and composability. 
