@@ -3,8 +3,6 @@ from __future__ import annotations
 from pathlib import Path
 from typing import List, Optional
 
-from llama_index.core.schema import Document as LlamaDocument
-
 from kardia.ingest.strategies.base import BaseIngestionStrategy
 from kardia.ingest.util import read_text_file, sha256_file
 from kardia.ingest.payloads import PreparedChunk, PreparedDocument
@@ -27,18 +25,8 @@ class MarkdownIngestionStrategy(BaseIngestionStrategy):
                 final_nodes.append(md_node)
                 continue
 
-            refined = self.etl.sentence_splitter.get_nodes_from_documents(
-                [
-                    LlamaDocument(
-                        text=content,
-                        metadata={
-                            **(md_node.metadata or {}),
-                            "filename": path.name,
-                            "filepath": str(path.resolve()),
-                        },
-                    )
-                ]
-            )
+            refined = self.etl.sentence_splitter.get_nodes_from_documents([self.etl.make_llama_doc(path, content)])
+
             final_nodes.extend(refined)
 
         texts = [node.get_content(metadata_mode="none") for node in final_nodes]
