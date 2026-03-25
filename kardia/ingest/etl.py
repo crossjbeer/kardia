@@ -21,6 +21,7 @@ class LlamaIndexETL:
         self.sentence_splitter = SentenceSplitter(
             chunk_size=config.chunk_size,
             chunk_overlap=config.chunk_overlap,
+            tokenizer=list,  # list("text") splits to chars, so chunk_size is in characters NOTE: may want to switch to a token-based splitter in the future. Currently limited by our embedding model, bge-small
         )
         self.markdown_parser = MarkdownNodeParser()
 
