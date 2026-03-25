@@ -103,6 +103,47 @@
       color: var(--muted);
     }
 
+    .nav-links {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      margin-bottom: 18px;
+      padding-bottom: 18px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .nav-link {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 12px;
+      border-radius: 12px;
+      color: var(--muted);
+      text-decoration: none;
+      font-size: 14px;
+      font-weight: 500;
+      transition: 0.18s ease;
+      border: 1px solid transparent;
+    }
+
+    .nav-link:hover {
+      background: var(--panel-3);
+      color: var(--text);
+      border-color: var(--border);
+    }
+
+    .nav-link.active {
+      background: var(--accent-soft);
+      color: #c4b5fd;
+      border-color: rgba(124, 58, 237, 0.3);
+    }
+
+    .nav-icon {
+      font-size: 16px;
+      width: 20px;
+      text-align: center;
+    }
+
     .sidebar-scroll {
       overflow-y: auto;
       padding-right: 4px;
@@ -564,6 +605,18 @@
         </div>
       </div>
 
+      <nav class="nav-links">
+        <a href="/" class="nav-link active">
+          <span class="nav-icon">💬</span> Chat
+        </a>
+        <a href="/documents-page" class="nav-link">
+          <span class="nav-icon">📄</span> Documents
+        </a>
+        <a href="/retrieval-playground" class="nav-link">
+          <span class="nav-icon">🧪</span> Retrieval Playground
+        </a>
+      </nav>
+
       <div class="sidebar-scroll">
         <section class="section">
           <div class="section-header">
@@ -574,14 +627,6 @@
             <button class="btn primary" onclick="newChat()">＋ New Chat</button>
             <div id="chatList" class="section-body"></div>
           </div>
-        </section>
-
-        <section class="section">
-          <div class="section-header">
-            <h3>Documents</h3>
-            <span class="pill">Indexed</span>
-          </div>
-          <div id="docList" class="section-body"></div>
         </section>
 
         <section class="section">
@@ -798,7 +843,7 @@
           btn.onclick = () => loadChatHistory(c.chat_id);
           btn.innerHTML = `
             <span>Chat ${c.chat_id}</span>
-            <small>${currentChatId === c.chat_id ? "Open" : "View"}</small>
+            <small>${currentChatId === c.chat_id ? "👀" : "View"}</small>
           `;
           container.appendChild(btn);
         });
@@ -876,80 +921,6 @@
         addMessage("Something went wrong while contacting the backend.", "assistant");
       } finally {
         sendBtn.disabled = false;
-      }
-    }
-
-    // ---------------- DOCUMENTS ----------------
-
-    async function loadDocuments() {
-      try {
-        const res = await fetch(API + "/documents");
-        const docs = await res.json();
-
-        const container = document.getElementById("docList");
-        container.innerHTML = "";
-
-        if (!docs.length) {
-          showEmptyList(container, "No documents available.");
-          return;
-        }
-
-        docs.forEach(doc => {
-          const btn = document.createElement("button");
-          btn.className = "list-btn";
-          btn.onclick = () => loadChunks(doc.id);
-          btn.innerHTML = `
-            <span>${doc.filename}</span>
-            <small>Open</small>
-          `;
-          container.appendChild(btn);
-        });
-      } catch (err) {
-        console.error(err);
-        showEmptyList(document.getElementById("docList"), "Could not load documents.");
-      }
-    }
-
-    async function loadChunks(docId) {
-      try {
-        setStatus("Loading document...");
-        const res = await fetch(`${API}/chunks/${docId}`);
-        const chunks = await res.json();
-
-        chatEl.innerHTML = "";
-        chatTitle.innerText = "Document View";
-        chatSubtitle.innerText = `Chunks for document ${docId}`;
-
-        const title = document.createElement("h3");
-        title.className = "doc-view-title";
-        title.innerText = "Document Chunks";
-        chatEl.appendChild(title);
-
-        if (!chunks.length) {
-          const empty = document.createElement("div");
-          empty.className = "empty-state";
-          empty.innerText = "This document has no chunks.";
-          chatEl.appendChild(empty);
-        } else {
-          chunks.forEach(c => {
-            const row = document.createElement("div");
-            row.className = "message-row assistant-row";
-
-            const div = document.createElement("div");
-            div.className = "message assistant";
-            div.innerText = c.content;
-
-            row.appendChild(div);
-            chatEl.appendChild(row);
-          });
-        }
-
-        renderChunks([]);
-        setStatus("Ready");
-      } catch (err) {
-        console.error(err);
-        setStatus("Error");
-        alert("Failed to load document chunks.");
       }
     }
 
@@ -1091,7 +1062,6 @@
 
     autoResizeTextarea();
     loadChats();
-    loadDocuments();
   </script>
 </body>
 </html>
