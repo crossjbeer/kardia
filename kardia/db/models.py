@@ -10,12 +10,17 @@ Base = declarative_base()
 class Document(Base):
     __tablename__ = "documents"
 
-    id         = Column(Integer, primary_key=True)
-    filename   = Column(String, nullable=False, unique=True)
-    filepath   = Column(String, nullable=False)
-    file_hash  = Column(String, nullable=False)   # sha256, for idempotent re-ingest
-    description = Column(String, nullable=True)   # optional user-supplied metadata
-    created_at = Column(DateTime, server_default=func.now())
+    id          = Column(Integer, primary_key=True)
+    filename    = Column(String, nullable=False, unique=True)
+    filepath    = Column(String, nullable=False)
+    file_hash   = Column(String, nullable=False)   # sha256, for idempotent re-ingest
+    description = Column(String, nullable=True)    # optional user-supplied metadata
+    corpus      = Column(String, nullable=True)    # e.g. "lore", "house_rule", "official_rule", "supplement"
+    campaign    = Column(String, nullable=True)    # which campaign/world this belongs to
+    tags        = Column(String, nullable=True)    # comma-separated tags e.g. "combat,magic,underdark"
+    game_system = Column(String, nullable=True)    # e.g. "dnd5e", "pathfinder2e", "custom"
+    author      = Column(String, nullable=True)    # who wrote the document
+    created_at  = Column(DateTime, server_default=func.now())
 
     chunks = relationship("Chunk", back_populates="document", cascade="all, delete-orphan")
 
