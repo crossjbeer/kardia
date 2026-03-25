@@ -4,7 +4,6 @@ from typing import List, Optional
 
 from pydantic import BaseModel
 
-
 class RetrievalResult(BaseModel):
     chunk_id: int
     document_id: int
@@ -14,22 +13,10 @@ class RetrievalResult(BaseModel):
     content: str
     start_index: Optional[int] = None
     end_index: Optional[int] = None
-    distance: float
     similarity: float
-
-
-class CollapsedRetrievalResult(BaseModel):
-    chunk_ids: List[int]
-    document_id: int
-    filename: str
-    filepath: str
-    description: Optional[str] = None
-    content: str
-    start_index: int
-    end_index: int
-    distance: float
-    similarity: float
-
+    distance: Optional[float] = None
+    metric: Optional[str] = None
+    retriever: Optional[str] = None
 
 class RetrievalResponse(BaseModel):
     query: str
