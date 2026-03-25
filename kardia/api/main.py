@@ -1,11 +1,15 @@
 
+import json
 import os
 from pathlib import Path
 from fastapi import FastAPI, HTTPException
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, StreamingResponse
+from pydantic import BaseModel
+from typing import Optional
 from sqlalchemy import create_engine, inspect
 from sqlalchemy.exc import SQLAlchemyError
 from dotenv import load_dotenv
+from anthropic import BadRequestError
 
 load_dotenv()
 
@@ -18,11 +22,22 @@ engine = create_engine(database_url)
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
+
+from kardia.retrieval.strategy_registry import retrieval_registry
+
 app = FastAPI()
 
 @app.get("/")
 def serve_ui():
     return FileResponse(os.path.join(os.path.dirname(__file__), "..", "index.html"))
+
+@app.get("/documents-page")
+def serve_documents():
+    return FileResponse(os.path.join(os.path.dirname(__file__), "..", "documents.html"))
+
+@app.get("/retrieval-playground")
+def serve_retrieval_playground():
+    return FileResponse(os.path.join(os.path.dirname(__file__), "..", "retrieval-playground.html"))
 
 from fastapi.middleware.cors import CORSMiddleware
 app.add_middleware(
@@ -56,7 +71,8 @@ def list_tables():
         raise HTTPException(status_code=500, detail=str(e))
 
 
-# New endpoint: /documents
+###
+# Documents
 @app.get("/documents")
 def list_documents():
     try:
@@ -78,7 +94,68 @@ def list_documents():
     except SQLAlchemyError as e:
         raise HTTPException(status_code=500, detail=str(e))
     
-# /ingest
+@app.get("/documents/{document_id}")
+def get_document(document_id: int):
+    try:
+        session = SessionLocal()
+        doc = session.query(Document).filter(Document.id == document_id).first()
+        if doc is None:
+            raise HTTPException(status_code=404, detail="Document not found")
+        chunk_count = session.query(Chunk).filter(Chunk.document_id == doc.id).count()
+        result = {
+            "id": doc.id,
+            "filename": doc.filename,
+            "filepath": doc.filepath,
+            "file_hash": doc.file_hash,
+            "description": doc.description,
+            "corpus": doc.corpus,
+            "campaign": doc.campaign,
+            "tags": doc.tags,
+            "game_system": doc.game_system,
+            "author": doc.author,
+            "created_at": doc.created_at,
+            "chunk_count": chunk_count,
+        }
+        session.close()
+        return result
+    except HTTPException:
+        raise
+    except SQLAlchemyError as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+class DocumentUpdate(BaseModel):
+    description: Optional[str] = None
+    corpus: Optional[str] = None
+    campaign: Optional[str] = None
+    tags: Optional[str] = None
+    game_system: Optional[str] = None
+    author: Optional[str] = None
+
+
+@app.put("/documents/{document_id}")
+def update_document(document_id: int, body: DocumentUpdate):
+    session = SessionLocal()
+    try:
+        doc = session.query(Document).filter(Document.id == document_id).first()
+        if doc is None:
+            raise HTTPException(status_code=404, detail="Document not found")
+        for field, value in body.model_dump(exclude_unset=True).items():
+            setattr(doc, field, value)
+        session.commit()
+        session.refresh(doc)
+        return {"id": doc.id, "filename": doc.filename}
+    except HTTPException:
+        raise
+    except SQLAlchemyError as e:
+        session.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        session.close()
+
+
+### 
+# Ingestion 
 @app.post("/ingest")
 def ingest():
     from kardia.ingest.service import IngestionService
@@ -93,7 +170,9 @@ def ingest():
     #except Exception as e:
     #    raise HTTPException(status_code=500, detail=str(e))
     
-# Endpoint: /chunks/{document_id}
+
+### 
+# Chunks 
 @app.get("/chunks/{document_id}")
 def get_chunks_for_document(document_id: int):
     try:
@@ -115,9 +194,8 @@ def get_chunks_for_document(document_id: int):
     except SQLAlchemyError as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-# --------------------------------------------------
-# New chat endpoints
-# --------------------------------------------------
+###
+# Chat 
 from kardia.chat.graph import build_graph
 from kardia.chat.schemas import ChatRequest, ChatResponse
 from kardia.db.models import Chat
@@ -142,7 +220,6 @@ def create_new_chat():
     finally:
         session.close()
 
-
 @app.get("/chats")
 def list_chats():
     session = SessionLocal()
@@ -160,7 +237,6 @@ def list_chats():
         raise HTTPException(status_code=500, detail=str(e))
     finally:
         session.close()
-
 
 @app.get("/chats/{chat_id}")
 def get_chat_history(chat_id: int):
@@ -187,7 +263,6 @@ def get_chat_history(chat_id: int):
         raise HTTPException(status_code=500, detail=str(e))
     finally:
         session.close()
-
 
 @app.post("/chat", response_model=ChatResponse)
 def chat(req: ChatRequest):
@@ -232,6 +307,23 @@ def chat(req: ChatRequest):
 
     except HTTPException:
         raise
+    # catch a bad request from anthropic 
+    except BadRequestError as e:
+        message = str(e)
+
+        if "usage limits" in message.lower():
+            print(message.lower() )
+            raise HTTPException(
+                status_code=429,
+                detail="Anthropic API usage limit reached. Try again later."
+            )
+
+        # fallback for other bad requests
+        raise HTTPException(
+            status_code=400,
+            detail=message
+        )
+    
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -251,3 +343,33 @@ def chat(req: ChatRequest):
         answer=answer,
         retrieved_chunks=result.get("retrieved_results", []),
     )
+
+### 
+# Retrieval 
+@app.get("/retrieval-strategies")
+def get_retrieval_strategies():
+    # Return the list of registered retrieval strategies
+    return {"strategies": list(retrieval_registry._strategies.keys())}
+
+
+# Retrieval request model for JSON body
+class RetrievalRequest(BaseModel):
+    query: str
+    strategy: str
+    top_k: Optional[int] = 5
+
+@app.post("/retrieve")
+def retrieve(body: RetrievalRequest):
+    session = SessionLocal()
+    if not retrieval_registry.supports(body.strategy):
+        raise HTTPException(status_code=400, detail=f"Strategy '{body.strategy}' not found")
+
+    try:
+        strategy = retrieval_registry.get(body.strategy)
+        results = strategy.retrieve(session, body.query, k=body.top_k)
+
+        return {"results": results}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        session.close()
