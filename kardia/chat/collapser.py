@@ -2,10 +2,10 @@ from __future__ import annotations
 
 from typing import List
 
-from kardia.retrieval.schemas import CollapsedRetrievalResult, RetrievalResult
+from kardia.retrieval.schemas import RetrievalResult
+from kardia.chat.schemas import SourceChunk 
 
-
-def collapse_results(results: List[RetrievalResult]) -> List[CollapsedRetrievalResult]:
+def collapse_results(results: List[RetrievalResult]) -> List[SourceChunk]:
     """
     Collapse contiguous chunks from the same document into single results.
 
@@ -14,7 +14,7 @@ def collapse_results(results: List[RetrievalResult]) -> List[CollapsedRetrievalR
     text is trimmed from the joined content using the stored index values.
 
     Raises ValueError if any result has a None start_index or end_index.
-    Input should be pre-reranked; output is ordered by (document_id, chunk_id).
+    Sort by similarity score, which should be the max of the group. 
     """
     if not results:
         return []
@@ -51,17 +51,14 @@ def collapse_results(results: List[RetrievalResult]) -> List[CollapsedRetrievalR
             end_index = chunk.end_index
 
         collapsed.append(
-            CollapsedRetrievalResult(
-                chunk_ids=[r.chunk_id for r in group],
-                document_id=first.document_id,
-                filename=first.filename,
-                filepath=first.filepath,
-                description=first.description,
-                content=content,
-                start_index=first.start_index,
-                end_index=end_index,
-                distance=min(r.distance for r in group),
-                similarity=max(r.similarity for r in group),
+            SourceChunk(
+                document_id = first.document_id,
+                chunk_ids = [r.chunk_id for r in group],
+                filename = first.filename,
+                filepath = first.filepath,
+                content = content,
+                description = first.description,
+                similarity = max(r.similarity for r in group)
             )
         )
 
