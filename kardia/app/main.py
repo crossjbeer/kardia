@@ -4,6 +4,7 @@ import os
 from pathlib import Path
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse, StreamingResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from typing import Optional
 from sqlalchemy import create_engine, inspect
@@ -11,35 +12,42 @@ from sqlalchemy.exc import SQLAlchemyError
 from dotenv import load_dotenv
 from anthropic import BadRequestError
 
-load_dotenv()
+from fastapi.middleware.cors import CORSMiddleware
 
 from kardia.config import Config
 from sqlalchemy.orm import sessionmaker
 from kardia.db.models import Document, Chunk
+from kardia.retrieval.strategy_registry import retrieval_registry
+
 database_url = Config.POSTGRES_URL
 
+load_dotenv()
 engine = create_engine(database_url)
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
+app = FastAPI()
 
-from kardia.retrieval.strategy_registry import retrieval_registry
+BASE_DIR = Path(__file__).resolve().parent
+TEMPLATES_DIR = BASE_DIR / "templates"
+STATIC_DIR = BASE_DIR / "static"
 
 app = FastAPI()
 
+app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+
 @app.get("/")
 def serve_ui():
-    return FileResponse(os.path.join(os.path.dirname(__file__), "..", "index.html"))
+    return FileResponse(TEMPLATES_DIR / "index.html")
 
 @app.get("/documents-page")
 def serve_documents():
-    return FileResponse(os.path.join(os.path.dirname(__file__), "..", "documents.html"))
+    return FileResponse(TEMPLATES_DIR / "documents.html")
 
 @app.get("/retrieval-playground")
 def serve_retrieval_playground():
-    return FileResponse(os.path.join(os.path.dirname(__file__), "..", "retrieval-playground.html"))
+    return FileResponse(TEMPLATES_DIR / "retrieval-playground.html")
 
-from fastapi.middleware.cors import CORSMiddleware
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],  # tighten later
@@ -325,6 +333,7 @@ def chat(req: ChatRequest):
         )
     
     except Exception as e:
+        print(e)
         raise HTTPException(status_code=500, detail=str(e))
 
     # Save assistant response
@@ -341,7 +350,7 @@ def chat(req: ChatRequest):
     return ChatResponse(
         chat_id=chat_id,
         answer=answer,
-        retrieved_chunks=result.get("retrieved_results", []),
+        retrieved_chunks=result.get("collapsed_context", []),
     )
 
 ### 
