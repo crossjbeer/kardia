@@ -9,8 +9,11 @@ class Config:
 
     POSTGRES_URL: str = f"postgresql+psycopg2://{POSTGRES_USER}:{POSTGRES_PASSWORD}@{POSTGRES_HOST}:{POSTGRES_PORT}/{POSTGRES_DB}"
 
-    EMBEDDING_MODEL: str = os.environ.get("EMBEDDING_MODEL", "BAAI/bge-small-en-v1.5")
     LORE_DIR: str = os.environ.get("LORE_DIR", "./lore")
+
+    MAX_CHUNK_SIZE_CHARS: int = int(os.environ.get("MAX_CHUNK_SIZE_CHARS", "512"))
+    CHUNK_OVERLAP_CHARS: int = int(os.environ.get("CHUNK_OVERLAP_CHARS", "64"))
+    EMBEDDING_MODEL: str = os.environ.get("EMBEDDING_MODEL", "BAAI/bge-small-en-v1.5")
 
     LLM_MODEL: str = os.environ.get("LLM_MODEL", "claude-sonnet-4-6")
     LLM_TEMPERATURE: float = float(os.environ.get("LLM_TEMPERATURE", "0.2"))
