@@ -1,4 +1,6 @@
-from sqlalchemy import create_engine, Column, Integer, String, Text, DateTime, ForeignKey
+"""Our SqlAlchemy models, which mirror the tables in our Postgres database."""
+
+from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey
 from sqlalchemy.orm import declarative_base, relationship
 from sqlalchemy.sql import func
 from pgvector.sqlalchemy import Vector

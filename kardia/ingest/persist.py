@@ -1,3 +1,4 @@
+"""Handles pushing prepared documents and chunks to the database"""
 from __future__ import annotations
 
 from sqlalchemy import select

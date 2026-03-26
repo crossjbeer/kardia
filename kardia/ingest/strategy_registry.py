@@ -1,3 +1,5 @@
+"""Registers and manages ingestion strategies for different file types."""
+
 from __future__ import annotations
 
 from typing import Dict

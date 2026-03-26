@@ -1,3 +1,4 @@
+"""Small utility endpoint for common file operations like hashing and text reading. """
 import hashlib
 from pathlib import Path
 

@@ -1,3 +1,11 @@
+"""
+Shared LlamaIndex ETL tooling used by all strategies.
+
+Supporting embedding, chunking, and building LlamaDocuments with consistent metadata.
+This may be deprecated in the future if we start building more strategies.
+
+"""
+
 from __future__ import annotations
 
 from pathlib import Path

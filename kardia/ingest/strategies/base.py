@@ -1,4 +1,4 @@
-
+"""Base Ingestion Strategy. Exposes a consume method that takes a file path and returns a prepared document."""
 from __future__ import annotations
 
 from abc import ABC, abstractmethod

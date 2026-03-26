@@ -1,7 +1,6 @@
-# ETL payload
+"""Data classes for prepared documents and chunks. Makes transition to the database easier."""
 from dataclasses import dataclass
 from typing import List, Optional
-
 
 @dataclass(slots=True)
 class PreparedChunk:
@@ -9,7 +8,6 @@ class PreparedChunk:
     start_index: Optional[int]
     end_index: Optional[int]
     embedding: List[float]
-
 
 @dataclass(slots=True)
 class PreparedDocument:

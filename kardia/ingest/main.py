@@ -1,4 +1,12 @@
-"""Ingest text / markdown files into the relational/vector database using llama-index"""
+"""
+Ingest files into the relational/vector database.
+
+Supports: 
+1. text
+2. markdown 
+
+Uses Llama-index for ETL and Embedding. 
+"""
 
 from __future__ import annotations
 

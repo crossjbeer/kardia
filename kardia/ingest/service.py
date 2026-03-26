@@ -1,3 +1,5 @@
+"""Coordinates the ingestion process. Grabs files, sends to the appropriate strategy, and persists the built results to the database."""
+
 from __future__ import annotations
 
 from pathlib import Path

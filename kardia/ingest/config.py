@@ -1,4 +1,3 @@
-# Config for easy access to common settings
 from dataclasses import dataclass
 
 from kardia.config import Config

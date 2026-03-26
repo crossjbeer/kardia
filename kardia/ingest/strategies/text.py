@@ -1,3 +1,4 @@
+"""Ingestion strategy for text files. Splits into character-based chunks by default."""
 from __future__ import annotations
 
 from typing import List, Optional

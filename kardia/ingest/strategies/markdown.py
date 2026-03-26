@@ -1,3 +1,7 @@
+"""
+Ingestion strategy for markdown files.
+Uses LlamaIndex's Markdown parser to split by markdown structure, then optionally refines large sections into smaller chunks.
+"""
 from __future__ import annotations
 
 from pathlib import Path
