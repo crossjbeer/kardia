@@ -1,3 +1,4 @@
+"""Centralized config that pulls from our environment. Includes sane defaults if something gets messed up."""
 import os 
 
 class Config:
