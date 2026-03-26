@@ -9,7 +9,6 @@ from kardia.retrieval.config import RetrievalConfig
 from kardia.retrieval.schemas import RetrievalResponse
 from kardia.retrieval.strategy_registry import retrieval_registry
 
-
 class RetrievalService:
     def __init__(self, config: RetrievalConfig) -> None:
         self.config = config
