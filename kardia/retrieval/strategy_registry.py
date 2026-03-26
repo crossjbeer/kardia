@@ -1,3 +1,4 @@
+"""Registers and manages retrieval strategies for different retrieval modes."""
 from __future__ import annotations
 
 from typing import Dict
@@ -19,7 +20,6 @@ class RetrievalRegistry:
 
     def supports(self, mode: str) -> bool:
         return mode.lower() in self._strategies
-
 
 from kardia.retrieval.strategies.vector import VectorSearchStrategy
 from kardia.retrieval.strategies.keyword import KeywordSearchStrategy

@@ -3,7 +3,6 @@ from __future__ import annotations
 from kardia.retrieval.config import RetrievalConfig
 from kardia.retrieval.service import RetrievalService
 
-
 def main() -> None:
     config = RetrievalConfig()
     service = RetrievalService(config)

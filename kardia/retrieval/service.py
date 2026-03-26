@@ -1,3 +1,4 @@
+"""Core retrieval service. Exposes a simple interface for retrieving relevant documents based on a query and given strategy."""
 from __future__ import annotations
 
 from typing import Optional
