@@ -11,7 +11,6 @@ let chatSubtitle;
 let chunkList;
 let chunksMeta;
 let chatListEl;
-let docListEl;
 let newChatBtn;
 let ingestBtn;
 let tablesBtn;
@@ -27,7 +26,6 @@ document.addEventListener("DOMContentLoaded", () => {
   chunkList = document.getElementById("chunkList");
   chunksMeta = document.getElementById("chunksMeta");
   chatListEl = document.getElementById("chatList");
-  docListEl = document.getElementById("docList");
   newChatBtn = document.getElementById("newChatBtn");
   ingestBtn = document.getElementById("ingestBtn");
   tablesBtn = document.getElementById("tablesBtn");
@@ -46,7 +44,6 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   loadChats();
-  loadDocuments();
 });
 
 function setStatus(text, type = "ready") {
@@ -75,11 +72,15 @@ function addMessage(text, role) {
 
   const div = document.createElement("div");
   div.className = `message ${role}`;
-  div.innerText = text;
+  if (role === "assistant") {
+    div.innerHTML = marked.parse(text);
+  } else {
+    div.innerText = text;
+  }
 
   row.appendChild(div);
   chatEl.appendChild(row);
-  row.scrollIntoView({ behavior: "smooth", block: "end" });
+  row.scrollIntoView({ behavior: "instant", block: "end" });
 }
 
 function showEmptyList(container, text) {
@@ -247,61 +248,6 @@ async function sendMessage() {
     addMessage("Something went wrong while contacting the backend.", "assistant");
   } finally {
     sendBtn.disabled = false;
-  }
-}
-
-// ---------------- DOCUMENTS ----------------
-
-async function loadDocuments() {
-  try {
-    const res = await fetch(`${API}/documents`);
-    const docs = await res.json();
-
-    docListEl.innerHTML = "";
-
-    if (!docs.length) {
-      showEmptyList(docListEl, "No documents available.");
-      return;
-    }
-
-    docs.forEach((doc) => {
-      const btn = document.createElement("button");
-      btn.className = "list-btn";
-      btn.innerHTML = `
-        <span>${doc.filename}</span>
-        <small>Open</small>
-      `;
-      btn.addEventListener("click", () => loadChunks(doc.id));
-      docListEl.appendChild(btn);
-    });
-  } catch (err) {
-    console.error(err);
-    showEmptyList(docListEl, "Could not load documents.");
-  }
-}
-
-async function loadChunks(documentId) {
-  try {
-    setStatus("Loading document chunks...", "loading");
-
-    const res = await fetch(`${API}/chunks/${documentId}`);
-    const chunks = await res.json();
-
-    chatTitle.innerText = "Document Chunks";
-    chatSubtitle.innerText = `Document ID ${documentId}`;
-    chatEl.innerHTML = `
-      <div class="welcome-card">
-        <h3>Document loaded</h3>
-        <p>Showing retrieved chunks for document ${documentId}.</p>
-      </div>
-    `;
-
-    renderChunks(chunks || []);
-    setStatus("Ready");
-  } catch (err) {
-    console.error(err);
-    setStatus("Error", "error");
-    alert("Failed to load document chunks.");
   }
 }
 
