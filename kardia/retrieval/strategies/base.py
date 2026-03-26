@@ -9,6 +9,9 @@ from kardia.retrieval.schemas import RetrievalResult
 
 
 class BaseRetrievalStrategy(ABC):
+    name: str
+    metric: str 
+
     @abstractmethod
     def retrieve(
         self,

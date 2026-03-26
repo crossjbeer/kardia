@@ -13,6 +13,9 @@ _RRF_K = 60  # RRF constant — higher value reduces the impact of high rankings
 
 
 class HybridSearchStrategy(BaseRetrievalStrategy):
+    name = "hybrid"
+    metric = "rrf"
+
     def __init__(self, embedder: Callable[[str], List[float]]) -> None:
         self._vector = VectorSearchStrategy(embedder)
         self._keyword = KeywordSearchStrategy()
@@ -26,12 +29,8 @@ class HybridSearchStrategy(BaseRetrievalStrategy):
     ) -> List[RetrievalResult]:
         fetch_k = k * 3  # over-fetch so fusion has enough candidates
 
-        vector_results = self._vector.retrieve(db, query, fetch_k, scope)
-        # print(f"len(vector_results) = {len(vector_results)}")
+        vector_results = self._vector.retrieve(db, query, fetch_k, scope) 
         keyword_results = self._keyword.retrieve(db, query, fetch_k, scope)
-        # print(f"len(keyword_results) = {len(keyword_results)}")
-
-        # RRF score: sum of 1 / (rank + K) across each ranked list
         rrf_scores: Dict[int, float] = {}
         best_result: Dict[int, RetrievalResult] = {}
 
@@ -48,9 +47,9 @@ class HybridSearchStrategy(BaseRetrievalStrategy):
 
         return [
             RetrievalResult(
-                **best_result[chunk_id].model_dump(exclude={"similarity", "distance"}),
+                **best_result[chunk_id].model_dump(exclude={"similarity", "distance", "metric"}),
                 similarity=score,
-                distance=1.0 - score,
+                metric=self.metric,
             )
             for chunk_id, score in ranked
         ]

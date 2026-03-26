@@ -11,6 +11,9 @@ from kardia.retrieval.strategies.base import BaseRetrievalStrategy
 
 
 class VectorSearchStrategy(BaseRetrievalStrategy):
+    name = "vector"
+    metric = "cosine"
+
     def __init__(self, embedder: Callable[[str], List[float]]) -> None:
         self._embed = embedder
 
@@ -60,6 +63,8 @@ class VectorSearchStrategy(BaseRetrievalStrategy):
                     end_index=row.end_index,
                     distance=distance,
                     similarity=1.0 - distance,
+                    metric=self.metric,
+                    retriever=self.name
                 )
             )
 

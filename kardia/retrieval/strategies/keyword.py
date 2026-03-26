@@ -9,8 +9,10 @@ from kardia.db.models import Chunk, Document
 from kardia.retrieval.schemas import RetrievalResult
 from kardia.retrieval.strategies.base import BaseRetrievalStrategy
 
-
 class KeywordSearchStrategy(BaseRetrievalStrategy):
+    name = "keyword"
+    metric = "ts_rank"
+
     def retrieve(
         self,
         db: Session,
@@ -18,7 +20,8 @@ class KeywordSearchStrategy(BaseRetrievalStrategy):
         k: int,
         scope: Optional[str] = None,
     ) -> List[RetrievalResult]:
-        tsquery = func.plainto_tsquery("english", query)
+        ## tsquery = func.plainto_tsquery("english", query)
+        tsquery = func.websearch_to_tsquery("english", query)
         rank_expr = func.ts_rank(Chunk.search_vector, tsquery).label("rank")
 
         stmt = (
@@ -51,8 +54,9 @@ class KeywordSearchStrategy(BaseRetrievalStrategy):
                 content=row.content,
                 start_index=row.start_index,
                 end_index=row.end_index,
-                distance=1.0 - float(row.rank),
                 similarity=float(row.rank),
+                metric=self.metric,
+                retriever=self.name
             )
             for row in rows
         ]
