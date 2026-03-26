@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, TypedDict
+from typing import Any, List, TypedDict
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
@@ -10,11 +10,13 @@ from langgraph.graph import StateGraph, START, END
 from llama_index.core.llms import ChatMessage
 from llama_index.llms.anthropic import Anthropic
 
-from .chat_repository import get_chat_or_404, list_chat_messages
+from kardia.chat.chat_repository import get_chat_or_404, list_chat_messages
 
 from kardia.config import Config
 from kardia.retrieval.config import RetrievalConfig
 from kardia.retrieval.service import RetrievalService
+from kardia.chat.collapser import collapse_results
+from kardia.retrieval.schemas import RetrievalResult
 
 config = Config()
 
@@ -31,30 +33,19 @@ class GraphState(TypedDict, total=False):
     chat_id: int
     user_query: str
     top_k: int
+    retriever: str
     model: str
     temperature: float
 
     history: list[dict[str, str]]
-    retrieved_results: list[dict[str, Any]]
+    retrieved_context: list[dict[str, Any]]
+    collapsed_context: list[dict[str, Any]]
     retrieved_prompt: str
     answer: str
 
+    max_tokens: int 
 
-def build_retrieval_prompt(user_query: str, results: list[dict[str, Any]]) -> str:
-    lines: list[str] = ["Retrieved Context:"]
-    for i, item in enumerate(results, start=1):
-        lines.extend(
-            [
-                f"Chunk {i}:",
-                f"- name: {item['filename']}",
-                f"- contents: {item['content'].strip()}",
-                "",
-            ]
-        )
-    lines.append(f"USER QUERY: {user_query}")
-    return "\n".join(lines)
-
-
+from kardia.retrieval.schemas import RetrievalResult
 def load_history_node(state: GraphState) -> dict[str, Any]:
     chat_id = state["chat_id"]
 
@@ -68,27 +59,58 @@ def load_history_node(state: GraphState) -> dict[str, Any]:
 
     return {"history": history}
 
-
-def retrieve_context_node(state: GraphState) -> dict[str, Any]:
+def retrieve_context_node(state: GraphState) -> dict[str, List[RetrievalResult]]:
     user_query = state["user_query"]
     k = state.get("top_k", 5)
+    retriever = state.get("retriever", "hybrid")
 
-    retrieval_response = retrieval_service.retrieve(user_query, k=k)
+    retrieval_response = retrieval_service.retrieve(user_query, k=k, mode=retriever)
+    # retrieved_context = [i.model_dump() for i in retrieval_response.results]
+    return {"retrieved_context": retrieval_response.results}
 
-    results = [r.model_dump() for r in retrieval_response.results]
-    retrieved_prompt = build_retrieval_prompt(user_query, results)
+def collapse_context_node(state: GraphState) -> dict[str, List[dict[str, Any]]]:
+    retrieved_context = state["retrieved_context"]
+    collapsed_context = collapse_results(retrieved_context)
+    return {"collapsed_context": collapsed_context}
 
-    return {
-        "retrieved_results": results,
-        "retrieved_prompt": retrieved_prompt,
-    }
+def build_context_prompt(user_query: str, results: list[dict[str, Any]]) -> str:
+    """
+    Builds a formatted context prompt string from a user query and a list of retrieval results.
 
+    Args:
+        user_query (str): The user's query to be appended at the end of the prompt.
+        results (list[dict[str, Any]]): 
+            A list of retrieval result objects, where each item is expected to support dictionary-style access for 'filename' and 'content' keys.
+
+    Returns:
+        str: A formatted string containing the retrieved context chunks and the user query.
+    """
+    lines: list[str] = ["Retrieved Context:"]
+    for i, item in enumerate(results, start=1):
+        lines.extend(
+            [
+                f"Chunk {i}:",
+                f"- name: {item['filename']}",
+                f"- contents: {item['content'].strip()}",
+                "",
+            ]
+        )
+    lines.append(f"USER QUERY: {user_query}")
+    return "\n".join(lines)
+
+def build_context_prompt_node(state: GraphState) -> dict[str, str]:
+    user_query = state["user_query"]
+    retrieved_context = state["collapsed_context"]
+    retrieved_context = [item.model_dump() for item in retrieved_context]
+
+    retrieved_prompt  = build_context_prompt(user_query, retrieved_context)
+    return {"retrieved_prompt": retrieved_prompt}
 
 def call_model_node(state: GraphState) -> dict[str, Any]:
     llm = Anthropic(
         model=state.get("model", config.LLM_MODEL),
         temperature=state.get("temperature", config.LLM_TEMPERATURE),
-        max_tokens=6000,
+        max_tokens=state.get("max_tokens", 4000)
     )
 
     history = state.get("history", [])
@@ -120,11 +142,15 @@ def build_graph():
 
     builder.add_node("load_history", load_history_node)
     builder.add_node("retrieve_context", retrieve_context_node)
+    builder.add_node("collapse_context", collapse_context_node)
+    builder.add_node("build_context_prompt", build_context_prompt_node)
     builder.add_node("call_model", call_model_node)
 
     builder.add_edge(START, "load_history")
     builder.add_edge("load_history", "retrieve_context")
-    builder.add_edge("retrieve_context", "call_model")
+    builder.add_edge("retrieve_context", "collapse_context")
+    builder.add_edge("collapse_context", "build_context_prompt")
+    builder.add_edge("build_context_prompt", "call_model")
     builder.add_edge("call_model", END)
 
     return builder.compile()
