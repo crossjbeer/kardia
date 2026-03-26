@@ -13,7 +13,7 @@ class ChatRequest(BaseModel):
 
 
 class SourceChunk(BaseModel):
-    chunk_id: int
+    chunk_ids: Optional[list[int]] = None
     document_id: int
     filename: str
     filepath: str
