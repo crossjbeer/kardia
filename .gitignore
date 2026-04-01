@@ -1,4 +1,6 @@
 **/__pycache__/
 lore
+prompts
+rules
 .env 
 .vscode
