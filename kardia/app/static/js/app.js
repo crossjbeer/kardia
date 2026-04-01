@@ -107,7 +107,7 @@ function renderChunks(chunks = []) {
     card.className = "chunk-card";
 
     const label = document.createElement("small");
-    label.innerText = `Chunk ${i + 1}`;
+    label.innerText = c.filename ? `${c.filename} — Chunk ${i + 1}` : `Chunk ${i + 1}`;
 
     const content = document.createElement("div");
     content.innerText = c.content || "(empty chunk)";
@@ -197,11 +197,16 @@ async function loadChatHistory(chatId) {
           <p>This chat has no messages yet.</p>
         </div>
       `;
+      renderChunks([]);
     } else {
       data.messages.forEach((m) => addMessage(m.content, m.role));
-    }
 
-    renderChunks([]);
+      // Show chunks from the last assistant message that has them
+      const lastAssistant = [...data.messages].reverse().find(
+        (m) => m.role === "assistant" && m.retrieved_chunks && m.retrieved_chunks.length
+      );
+      renderChunks(lastAssistant ? lastAssistant.retrieved_chunks : []);
+    }
     await loadChats();
     setStatus("Ready");
   } catch (err) {
