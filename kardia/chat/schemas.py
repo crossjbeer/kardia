@@ -19,7 +19,7 @@ class SourceChunk(BaseModel):
     filepath: str
     description: Optional[str] = None
     content: str
-    similarity: float
+    similarity: Optional[float] = None
 
 
 class ChatResponse(BaseModel):
