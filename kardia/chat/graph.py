@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any, List, TypedDict
 
 from sqlalchemy import create_engine
@@ -25,9 +26,12 @@ ChatSessionLocal = sessionmaker(bind=_chat_engine, autoflush=False, autocommit=F
 
 retrieval_service = RetrievalService(RetrievalConfig())
 
-# read the system prompt from prompts/system-prompt.md at module load time
-with open("prompts/system-prompt.md", "r") as f:
-    SYSTEM_PROMPT = f.read()
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+SYSTEM_PROMPT_PATH = PROJECT_ROOT / "prompts" / "system-prompt.md"
+LORE_SEED_PATH = PROJECT_ROOT / "prompts" / "lore-seed.md"
+
+# Read the base system prompt at module load time.
+SYSTEM_PROMPT = SYSTEM_PROMPT_PATH.read_text(encoding="utf-8")
 
 class GraphState(TypedDict, total=False):
     chat_id: int
@@ -41,6 +45,7 @@ class GraphState(TypedDict, total=False):
     retrieved_context: list[dict[str, Any]]
     collapsed_context: list[dict[str, Any]]
     retrieved_prompt: str
+    system_prompt: str
     answer: str
 
     max_tokens: int 
@@ -106,6 +111,20 @@ def build_context_prompt_node(state: GraphState) -> dict[str, str]:
     retrieved_prompt  = build_context_prompt(user_query, retrieved_context)
     return {"retrieved_prompt": retrieved_prompt}
 
+def add_lore_seed_to_prompt_node(state: GraphState) -> dict[str, str]:
+    system_prompt = SYSTEM_PROMPT
+
+    if LORE_SEED_PATH.exists():
+        lore_seed = LORE_SEED_PATH.read_text(encoding="utf-8").strip()
+        if lore_seed:
+            system_prompt = (
+                f"{SYSTEM_PROMPT.rstrip()}\n\n"
+                "Campaign Lore Seed:\n"
+                f"{lore_seed}"
+            )
+
+    return {"system_prompt": system_prompt}
+
 def call_model_node(state: GraphState) -> dict[str, Any]:
     llm = Anthropic(
         model=state.get("model", config.LLM_MODEL),
@@ -115,9 +134,10 @@ def call_model_node(state: GraphState) -> dict[str, Any]:
 
     history = state.get("history", [])
     retrieved_prompt = state["retrieved_prompt"]
+    system_prompt = state.get("system_prompt", SYSTEM_PROMPT)
 
     messages: list[ChatMessage] = [
-        ChatMessage(role="system", content=SYSTEM_PROMPT)
+        ChatMessage(role="system", content=system_prompt)
     ]
 
     # prior DB chat history
@@ -144,13 +164,15 @@ def build_graph():
     builder.add_node("retrieve_context", retrieve_context_node)
     builder.add_node("collapse_context", collapse_context_node)
     builder.add_node("build_context_prompt", build_context_prompt_node)
+    builder.add_node("add_lore_seed_to_prompt", add_lore_seed_to_prompt_node)
     builder.add_node("call_model", call_model_node)
 
     builder.add_edge(START, "load_history")
     builder.add_edge("load_history", "retrieve_context")
     builder.add_edge("retrieve_context", "collapse_context")
     builder.add_edge("collapse_context", "build_context_prompt")
-    builder.add_edge("build_context_prompt", "call_model")
+    builder.add_edge("build_context_prompt", "add_lore_seed_to_prompt")
+    builder.add_edge("add_lore_seed_to_prompt", "call_model")
     builder.add_edge("call_model", END)
 
     return builder.compile()
