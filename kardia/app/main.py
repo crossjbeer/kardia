@@ -1,6 +1,4 @@
 
-import json
-import os
 from pathlib import Path
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse, StreamingResponse
@@ -15,9 +13,34 @@ from anthropic import BadRequestError
 from fastapi.middleware.cors import CORSMiddleware
 
 from kardia.config import Config
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import sessionmaker, Session
 from kardia.db.models import Document, Chunk
 from kardia.retrieval.strategy_registry import retrieval_registry
+from kardia.chat.schemas import SourceChunk as SourceChunkSchema
+
+
+def _fetch_source_chunks(session: Session, chunk_ids: list[int]) -> list[SourceChunkSchema]:
+    """Hydrate SourceChunk objects from the DB given a list of chunk IDs."""
+    if not chunk_ids:
+        return []
+    rows = (
+        session.query(Chunk, Document)
+        .join(Document, Chunk.document_id == Document.id)
+        .filter(Chunk.id.in_(chunk_ids))
+        .order_by(Chunk.id)
+        .all()
+    )
+    return [
+        SourceChunkSchema(
+            chunk_ids=[chunk.id],
+            document_id=chunk.document_id,
+            filename=chunk.document.filename,
+            filepath=chunk.document.filepath,
+            description=chunk.document.description,
+            content=chunk.content,
+        )
+        for chunk, doc in rows
+    ]
 
 database_url = Config.POSTGRES_URL
 
@@ -31,6 +54,8 @@ app = FastAPI()
 BASE_DIR = Path(__file__).resolve().parent
 TEMPLATES_DIR = BASE_DIR / "templates"
 STATIC_DIR = BASE_DIR / "static"
+PROMPTS_DIR = BASE_DIR.parent.parent / "prompts"
+LORE_SEED_PATH = PROMPTS_DIR / "lore-seed.md"
 
 app = FastAPI()
 
@@ -162,6 +187,24 @@ def update_document(document_id: int, body: DocumentUpdate):
         session.close()
 
 
+###
+# Lore Seed
+class LoreSeedUpdate(BaseModel):
+    content: str
+
+@app.get("/lore-seed")
+def get_lore_seed():
+    if LORE_SEED_PATH.exists():
+        return {"content": LORE_SEED_PATH.read_text(encoding="utf-8"), "exists": True}
+    return {"content": "", "exists": False}
+
+@app.put("/lore-seed")
+def update_lore_seed(body: LoreSeedUpdate):
+    PROMPTS_DIR.mkdir(parents=True, exist_ok=True)
+    LORE_SEED_PATH.write_text(body.content, encoding="utf-8")
+    return {"status": "saved"}
+
+
 ### 
 # Ingestion 
 @app.post("/ingest")
@@ -262,6 +305,11 @@ def get_chat_history(chat_id: int):
                     "id": m.id,
                     "role": m.role,
                     "content": m.content,
+                    "retrieved_chunk_ids": m.retrieved_chunk_ids,
+                    "retrieved_chunks": [
+                        c.model_dump()
+                        for c in _fetch_source_chunks(session, m.retrieved_chunk_ids or [])
+                    ],
                     "created_at": m.created_at,
                 }
                 for m in chat.messages
@@ -336,10 +384,25 @@ def chat(req: ChatRequest):
         print(e)
         raise HTTPException(status_code=500, detail=str(e))
 
+    # Flatten all chunk IDs from the collapsed context
+    collapsed_context = result.get("collapsed_context", [])
+    chunk_ids: list[int] = [
+        cid
+        for chunk in collapsed_context
+        for cid in (chunk.chunk_ids or [])
+    ]
+
     # Save assistant response
     session = SessionLocal()
     try:
-        append_message(session, chat_id=chat_id, role="assistant", content=answer)
+        print(chunk_ids)
+        append_message(
+            session,
+            chat_id=chat_id,
+            role="assistant",
+            content=answer,
+            retrieved_chunk_ids=chunk_ids or None,
+        )
         session.commit()
     except SQLAlchemyError as e:
         session.rollback()
@@ -347,10 +410,17 @@ def chat(req: ChatRequest):
     finally:
         session.close()
 
+    # Fetch persisted chunks from DB so the response reflects stored data
+    session = SessionLocal()
+    try:
+        retrieved_chunks = _fetch_source_chunks(session, chunk_ids or [])
+    finally:
+        session.close()
+
     return ChatResponse(
         chat_id=chat_id,
         answer=answer,
-        retrieved_chunks=result.get("collapsed_context", []),
+        retrieved_chunks=retrieved_chunks,
     )
 
 ### 
