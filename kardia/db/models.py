@@ -1,6 +1,6 @@
 """Our SqlAlchemy models, which mirror the tables in our Postgres database."""
 
-from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey
+from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey, ARRAY
 from sqlalchemy.orm import declarative_base, relationship
 from sqlalchemy.sql import func
 from pgvector.sqlalchemy import Vector
@@ -56,10 +56,11 @@ class Chat(Base):
 class ChatMessage(Base):
     __tablename__ = "chat_messages"
 
-    id         = Column(Integer, primary_key=True)
-    chat_id    = Column(Integer, ForeignKey("chats.id"), nullable=False)
-    role       = Column(String, nullable=False)   # "user" | "assistant"
-    content    = Column(Text, nullable=False)
-    created_at = Column(DateTime, server_default=func.now())
+    id                   = Column(Integer, primary_key=True)
+    chat_id              = Column(Integer, ForeignKey("chats.id"), nullable=False)
+    role                 = Column(String, nullable=False)   # "user" | "assistant"
+    content              = Column(Text, nullable=False)
+    retrieved_chunk_ids  = Column(ARRAY(Integer), nullable=True)
+    created_at           = Column(DateTime, server_default=func.now())
 
     chat = relationship("Chat", back_populates="messages")
