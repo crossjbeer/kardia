@@ -248,3 +248,89 @@ async function saveDocument() {
 
 // ---- Init ----
 loadDocuments();
+
+// ---- Lore Seed ----
+
+async function openLoreSeed() {
+  try {
+    setStatus("Loading\u2026", "loading");
+    currentDocId = null;
+    setActiveDoc(null);
+
+    const res = await fetch(`${API}/lore-seed`);
+    if (!res.ok) throw new Error("Failed to load lore seed");
+    const data = await res.json();
+
+    docTitle.textContent = "Lore Seed";
+    docSubtitle.textContent = "Edit the lore seed prompt used to ground the AI agent.";
+    renderLoreSeedEditor(data.content);
+    setStatus("Ready");
+  } catch (err) {
+    console.error(err);
+    setStatus("Error", "error");
+  }
+}
+
+function renderLoreSeedEditor(content) {
+  docContent.innerHTML = "";
+
+  const card = document.createElement("div");
+  card.className = "meta-card";
+  card.innerHTML = `
+    <div class="meta-card-header">
+      <h3>Lore Seed</h3>
+    </div>
+    <p style="font-size:13px; color:var(--muted); margin:0 0 16px;">
+      This prompt grounds the AI agent with campaign and world information.
+      Changes are written directly to <code style="background:rgba(255,255,255,0.08);padding:1px 5px;border-radius:5px;">prompts/lore-seed.md</code>.
+    </p>
+    <div class="field" style="grid-column:1/-1;">
+      <label>Lore Content</label>
+      <textarea id="loreSeedText" style="min-height:440px; resize:vertical; font-family:monospace; font-size:13px; line-height:1.6;">${escapeHtml(content)}</textarea>
+    </div>
+    <div class="save-row" style="margin-top:18px;">
+      <button class="save-btn" id="loreSeedSaveBtn" onclick="saveLoreSeed()">Save Lore Seed</button>
+      <span class="save-feedback" id="loreSeedFeedback"></span>
+    </div>
+  `;
+  docContent.appendChild(card);
+}
+
+async function saveLoreSeed() {
+  const saveBtn = document.getElementById("loreSeedSaveBtn");
+  const feedback = document.getElementById("loreSeedFeedback");
+  const content = document.getElementById("loreSeedText").value;
+
+  try {
+    saveBtn.disabled = true;
+    setStatus("Saving\u2026", "loading");
+    feedback.className = "save-feedback";
+    feedback.textContent = "";
+
+    const res = await fetch(`${API}/lore-seed`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ content }),
+    });
+
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.detail || "Save failed");
+    }
+
+    feedback.textContent = "Saved!";
+    feedback.className = "save-feedback visible";
+    setStatus("Ready");
+
+    setTimeout(() => {
+      feedback.className = "save-feedback";
+    }, 2500);
+  } catch (err) {
+    console.error(err);
+    feedback.textContent = "Save failed: " + err.message;
+    feedback.className = "save-feedback visible err";
+    setStatus("Error", "error");
+  } finally {
+    saveBtn.disabled = false;
+  }
+}
