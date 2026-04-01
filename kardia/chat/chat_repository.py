@@ -25,11 +25,18 @@ def list_chat_messages(db: Session, chat_id: int) -> Sequence[ChatMessage]:
     return chat.messages
 
 
-def append_message(db: Session, chat_id: int, role: str, content: str) -> ChatMessage:
+def append_message(
+    db: Session,
+    chat_id: int,
+    role: str,
+    content: str,
+    retrieved_chunk_ids: list[int] | None = None,
+) -> ChatMessage:
     msg = ChatMessage(
         chat_id=chat_id,
         role=role,
         content=content,
+        retrieved_chunk_ids=retrieved_chunk_ids,
     )
     db.add(msg)
     db.flush()
