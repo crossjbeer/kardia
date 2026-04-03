@@ -22,6 +22,8 @@ class Document(Base):
     tags        = Column(String, nullable=True)    # comma-separated tags e.g. "combat,magic,underdark"
     game_system = Column(String, nullable=True)    # e.g. "dnd5e", "pathfinder2e", "custom"
     author      = Column(String, nullable=True)    # who wrote the document
+    book        = Column(String, nullable=True)    # top-level book/source folder e.g. "srd", "curse_of_strahd"
+    section     = Column(String, nullable=True)    # sub-folder within book e.g. "classes", "spells"
     created_at  = Column(DateTime, server_default=func.now())
 
     chunks = relationship("Chunk", back_populates="document", cascade="all, delete-orphan")
@@ -33,6 +35,7 @@ class Chunk(Base):
 
     id          = Column(Integer, primary_key=True)
     document_id = Column(Integer, ForeignKey("documents.id"), nullable=False)
+    chunk_index = Column(Integer, nullable=True)  # 0-based position within document, enables neighbor expansion
     content     = Column(Text, nullable=False)
     start_index = Column(Integer)
     end_index   = Column(Integer)
